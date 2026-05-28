@@ -11,7 +11,7 @@ items:
     expires: 2026-05-23
 
   - name: greek_yogurt
-    quantity: 1
+    quantity: 0
     unit: cup
     expires: 2026-05-22
 
