@@ -1,0 +1,47 @@
+# fridge.yaml — observed state. Edit this file to trigger a new reconcile.
+items:
+  - name: eggs
+    quantity: 2
+    unit: count
+    expires: 2026-05-29
+
+  - name: milk
+    quantity: 250
+    unit: ml
+    expires: 2026-05-23
+
+  - name: greek_yogurt
+    quantity: 1
+    unit: cup
+    expires: 2026-05-22
+
+  - name: cheddar_cheese
+    quantity: 80
+    unit: g
+    expires: 2026-06-11
+
+  - name: spinach
+    quantity: 1
+    unit: handful
+    expires: 2026-05-24
+
+  - name: bread
+    quantity: 4
+    unit: slices
+    expires: 2026-05-26
+
+  - name: butter
+    quantity: 50
+    unit: g
+    expires: 2026-07-02
+
+  - name: garlic
+    quantity: 3
+    unit: cloves
+    expires: 2026-06-16
+
+pantry:
+  - salt
+  - pepper
+  - olive_oil
+  - flour
