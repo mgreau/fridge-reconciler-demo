@@ -11,7 +11,7 @@ items:
     expires: 2026-05-29
 
   - name: eggs
-    quantity: 0
+    quantity: 6
     unit: count
     expires: 2026-05-29
 
