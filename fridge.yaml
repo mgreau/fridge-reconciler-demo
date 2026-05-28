@@ -1,7 +1,7 @@
 # fridge.yaml — observed state. Edit this file to trigger a new reconcile.
 items:
   - name: tomatoes
-    quantity: 5
+    quantity: 1
     unit: count
     expires: 2026-05-29
 
