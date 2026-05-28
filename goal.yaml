@@ -1,16 +1,16 @@
 # goal.yaml — desired state. Rarely edited.
-vibe: "something comforting and warm for a quiet evening"
+vibe: "fresh and light salad for a sunny lunch"
 
 constraints:
   vegetarian: true
-  max_prep_minutes: 25
+  max_prep_minutes: 15
   servings: 2
   use_expiring_first: true
 
 avoid:
   - mushrooms
-  - spicy
-
+  - heavy
 prefer:
-  - one_pan
-  - cozy
+  - fresh
+  - crisp
+  - cold
