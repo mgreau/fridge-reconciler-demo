@@ -21,7 +21,7 @@ items:
     expires: 2026-05-22
 
   - name: cheddar_cheese
-    quantity: 200
+    quantity: 150
     unit: g
     expires: 2026-06-11
 
