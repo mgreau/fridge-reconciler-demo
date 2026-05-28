@@ -77,57 +77,80 @@ Same plumbing as Chainguard's `update-bot` (workqueue + OctoSTS + reconciler) �
 ## Observability — every agent step in Elastic APM
 
 ```
-   ┌─── per agent execution ─────────────────────────────────┐
-   │                                                          │
-   │   metaagent ─► Vertex AI (Claude)                        │
-   │       │                                                  │
-   │       ├─ emits OTel spans:                               │
-   │       │     • invoke_agent      (root per agent call)    │
-   │       │     • execute_tool submit_result                 │
-   │       │       attrs: gen_ai.input.messages = JSON,       │
-   │       │              driftlessaf.tool.reasoning = text,  │
-   │       │              gen_ai.output.messages = result     │
-   │       │                                                  │
-   │       └─ emits GenAI metrics:                            │
-   │             • gen_ai.client.token.usage                  │
-   │             • genai.tool.calls                           │
-   │                                                          │
-   └──────────────────────┬───────────────────────────────────┘
-                          │
-                          ▼  OTLP/HTTP (Authorization: ApiKey ...)
-   ┌─────────────────────────────────────────────────────────┐
-   │             Elastic Cloud Serverless APM                 │
-   │                                                          │
-   │   Trace tree per reconcile:                              │
-   │       reconcile (gen=hash)                               │
-   │        ├── inventory.parse                               │
-   │        ├── iter-1                                        │
-   │        │    ├── chef.propose                             │
-   │        │    │    └── invoke_agent                        │
-   │        │    │         └── execute_tool submit_result     │
-   │        │    └── critic.evaluate                          │
-   │        │         └── invoke_agent                        │
-   │        │              └── execute_tool submit_result     │
-   │        ├── iter-N  …                                     │
-   │        └── judge.score                                   │
-   │             └── invoke_agent                             │
-   │                  └── execute_tool submit_result          │
-   │                                                          │
-   │   Root span attributes (per reconcile):                  │
-   │     fridge.generation                  hash             │
-   │     fridge.status                      CONVERGED / …     │
-   │     fridge.iterations_to_converge      1, 2, 3           │
-   │     fridge.judge_score                 0.10 – 1.00       │
-   │     fridge.recipe_title                "Spinach…"        │
-   │     fridge.recipe_prep_minutes         20                │
-   │     fridge.recipe_ingredients          count             │
-   │                                                          │
-   │   Dashboard ➜ panel queries in queries.md (private)      │
-   └─────────────────────────────────────────────────────────┘
+   ┌─── per agent execution ──────────────────────────────────────────┐
+   │                                                                   │
+   │   metaagent ─► Vertex AI (Claude)                                 │
+   │       │                                                           │
+   │       ├─ framework auto-emits OTel spans:                         │
+   │       │     • invoke_agent                                        │
+   │       │     • execute_tool submit_result                          │
+   │       │       attrs:  gen_ai.input.messages   = full JSON         │
+   │       │               driftlessaf.tool.reasoning = LLM text       │
+   │       │               gen_ai.output.messages  = tool result       │
+   │       │                                                           │
+   │       └─ emits GenAI metrics:                                     │
+   │             • gen_ai.client.token.usage                           │
+   │             • genai.tool.calls                                    │
+   │                                                                   │
+   │   reconciler-owned spans (reconcile, iter-N, chef.propose,        │
+   │   critic.evaluate, judge.score, inventory.parse) each stamp:      │
+   │             • gen_ai.system           "fridge-reconciler"         │
+   │             • gen_ai.operation.name   <span-name>                 │
+   │             • fridge.*                <span-specific>             │
+   │                                                                   │
+   └─────────────────────────────────┬─────────────────────────────────┘
+                                     │
+                                     ▼  OTLP/HTTP  (Authorization: ApiKey ...)
+   ┌──────────────────────────────────────────────────────────────────┐
+   │                  Elastic Cloud Serverless APM                     │
+   │                                                                   │
+   │   service.name : mgreau85-fridge-recon-rec  (Cloud Run service)   │
+   │                                                                   │
+   │   Trace tree per reconcile:                                       │
+   │     reconcile                       ← root span owned by us       │
+   │      ├── inventory.parse                                          │
+   │      ├── iter-1                                                   │
+   │      │    ├── chef.propose                                        │
+   │      │    │    └── invoke_agent                                   │
+   │      │    │         └── execute_tool submit_result                │
+   │      │    └── critic.evaluate                                     │
+   │      │         └── invoke_agent                                   │
+   │      │              └── execute_tool submit_result                │
+   │      ├── iter-N …                                                 │
+   │      └── judge.score                                              │
+   │           └── invoke_agent                                        │
+   │                └── execute_tool submit_result                     │
+   │                                                                   │
+   │   Attributes on the `reconcile` span (queried by dashboards):     │
+   │     fridge.generation              SHA(goal + fridge + today)     │
+   │     fridge.status                  CONVERGED / CANT_RECONCILE     │
+   │     fridge.iterations_to_converge  1, 2, 3                        │
+   │     fridge.judge_score             0.10 – 1.00                    │
+   │     fridge.recipe_title            "Savory Yogurt Pancakes…"      │
+   │     fridge.recipe_prep_minutes     20                              │
+   │     fridge.recipe_ingredients      ingredient count                │
+   │     fridge.final_drift_count       0 on CONVERGED                  │
+   │     fridge.pantry_items            count                           │
+   │                                                                   │
+   │   Per-iteration attrs live on chef.propose / critic.evaluate:     │
+   │     fridge.drift_count           total drift items                │
+   │     fridge.drift_missing         missing ingredients              │
+   │     fridge.drift_insufficient    quantity-too-low                 │
+   │     fridge.drift_expired         used-but-expired                 │
+   │                                                                   │
+   │   Dashboard panels filter on:                                     │
+   │     service.name == "mgreau85-fridge-recon-rec"                   │
+   │     span.name    == "reconcile"      (one row per reconcile)      │
+   │                                                                   │
+   └──────────────────────────────────────────────────────────────────┘
 ```
 
-The same trace tree shape used to debug a 2000-image reconciler fleet in
-production — applied to one fridge.
+> **Note.** The framework's `httpmetrics` overlays its own TracerProvider on top
+> of ours, and its `llmSpanFilterProcessor` only forwards spans that carry at
+> least one `gen_ai.*` attribute through to OTLP. Every span the reconciler
+> emits therefore stamps `gen_ai.system = "fridge-reconciler"` so it survives
+> the filter and reaches Elastic. Same trace tree shape used to debug a 2000-
+> image reconciler fleet in production — applied to one fridge.
 
 ### Live Elastic dashboard
 
@@ -135,7 +158,7 @@ production — applied to one fridge.
 
 The "Fridge Reconciler" dashboard surfaces:
 - reconciles ran · convergence rate · avg iterations · avg judge score
-- judge-score timeline split by `fridge.generation` (the "ate the eggs" divergence)
+- judge-score timeline split by `fridge.generation`
 - recipes table (titles · prep time · iterations · judge score)
 - iteration count histogram
 - p95 latency by span name
