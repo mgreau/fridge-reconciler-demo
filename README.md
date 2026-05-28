@@ -201,10 +201,3 @@ That stochasticity is the talk's central tension: **structural drift checks
 Production reconcilers need both layers.**
 
 ---
-
-## Source
-
-The reconciler source lives in [chainguard-dev/mono](https://github.com/chainguard-dev/mono)
-under `env/dev/mgreau.dev/460-fridge-reconciler-demo/fridge-reconciler/` (private
-during the meetup; the same shape ships in update-bot, autofix, and the other
-production reconcilers in `bots/`).
