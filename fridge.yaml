@@ -31,7 +31,7 @@ items:
     expires: 2026-06-11
 
   - name: spinach
-    quantity: 1
+    quantity: 0
     unit: handful
     expires: 2026-05-24
 
