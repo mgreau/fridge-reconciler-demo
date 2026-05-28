@@ -154,7 +154,7 @@ Same plumbing as Chainguard's `update-bot` (workqueue + OctoSTS + reconciler) 鈥
 
 ### Live Elastic dashboard
 
-[Elastic Cloud 路 My Observability Project](https://my-observability-project-d36723.kb.us-central1.gcp.elastic.cloud)
+[Elastic Cloud 路 My Observability Project]([https://my-observability-project-d36723.kb.us-central1.gcp.elastic.cloud](https://my-observability-project-d36723.kb.us-central1.gcp.elastic.cloud/app/dashboards#/view/54225184-9fd9-4aac-b95c-01442817085c?_g=()))
 
 The "Fridge Reconciler" dashboard surfaces:
 - reconciles ran 路 convergence rate 路 avg iterations 路 avg judge score
@@ -162,6 +162,8 @@ The "Fridge Reconciler" dashboard surfaces:
 - recipes table (titles 路 prep time 路 iterations 路 judge score)
 - iteration count histogram
 - p95 latency by span name
+
+<img width="2776" height="1400" alt="image" src="https://github.com/user-attachments/assets/2e89838d-6a63-4a62-88fb-2017f9794736" />
 
 ---
 
