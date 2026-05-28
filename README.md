@@ -25,83 +25,54 @@ and post the resulting recipe as a GitHub Check Run on the commit.
 ## Architecture
 
 ```
-                          ┌───────────────────────────┐
-                          │  github.com/mgreau/       │
-                          │  fridge-reconciler-demo   │  ← you edit fridge.yaml here
-                          │  ┌─────────────────────┐  │
-                          │  │ fridge.yaml         │  │
-                          │  │ goal.yaml           │  │
-                          │  └─────────────────────┘  │
-                          └─────────────┬─────────────┘
-                                        │ push event (webhook)
-                                        ▼
-                          ┌───────────────────────────┐
-                          │  Cloud Run: gh-events     │
-                          │  verifies HMAC signature  │
-                          │  → CloudEvent             │
-                          └─────────────┬─────────────┘
-                                        ▼
-                          ┌───────────────────────────┐
-                          │  CloudEvents broker        │
-                          │  (Pub/Sub topic)           │
-                          └─────────────┬─────────────┘
-                                        ▼
-                          ┌───────────────────────────┐
-                          │  Push listener             │
-                          │  – matches path pattern    │
-                          │  – mints OctoSTS token     │
-                          │  – enqueues work item      │
-                          └─────────────┬─────────────┘
-                                        ▼
-                          ┌───────────────────────────┐
-                          │  Workqueue (GCS-backed)    │
-                          │  dedup by file path        │
-                          │  retry w/ exponential bo   │
-                          └─────────────┬─────────────┘
-                                        ▼
-                          ┌───────────────────────────┐
-                          │  Workqueue dispatcher      │
-                          │  respects concurrency cap  │
-                          └─────────────┬─────────────┘
-                                        ▼
-   ┌─────────────────────────────────────────────────────────────┐
-   │  Reconciler Cloud Run                                       │
-   │                                                             │
-   │  ┌──────────┐                                               │
-   │  │ Inventory│ parses fridge.yaml → normalized + expiry      │
-   │  └────┬─────┘                                               │
-   │       │                                                     │
-   │       ▼                                                     │
-   │  ┌─── ITERATE up to 3 times ────────────────────────┐       │
-   │  │   ┌──────┐   proposal   ┌──────┐                 │       │
-   │  │   │ Chef │ ───────────► │Critic│                 │       │
-   │  │   │      │              │      │                 │       │
-   │  │   └──────┘ ◄─structured ┴──────┘                 │       │
-   │  │              drift                                │       │
-   │  │   exit when drift_count == 0                      │       │
-   │  └───────────────────────────────────────────────────┘      │
-   │                                 │                            │
-   │                                 ▼                            │
-   │                          ┌──────────┐                        │
-   │                          │  Judge   │ 0.0 – 1.0 quality      │
-   │                          └────┬─────┘                        │
-   │                               │                              │
-   └───────────────────────────────┼──────────────────────────────┘
-                                   │ recipe → markdown
-                                   ▼
-                          ┌───────────────────────────┐
-                          │  GitHub Check Run         │ ← shown on the commit
-                          │  with recipe in summary   │   you just pushed
-                          └───────────────────────────┘
+                                                  GCP
+                            ┌──────────────────────────────────────────────────────────────────┐
+                            │                                                                  │
+ ┌────────────┐             │  ┌──────────────┐      ┌────────────────────┐                    │
+ │  GitHub    │   push      │  │ github-events│      │ CloudEvents Broker │                    │
+ │            │             │  │  (webhook)   │      │ (filter + enqueue) │                    │
+ │ fridge.yaml├─────────────┼─►│              ├─────►│                    │                    │
+ │ goal.yaml  │             │  └──────────────┘      └─────────┬──────────┘                    │
+ │            │             │                                  │                               │
+ │            │             │                                  ▼                               │
+ │            │             │                         ┌────────────────────┐                   │
+ │            │             │                         │ Workqueue          │                   │
+ │            │             │                         │ (rcv + dispatcher) │                   │
+ │            │             │                         └─────────┬──────────┘                   │
+ │            │             │                                   │                              │
+ │            │             │                                   ▼                              │
+ │            │             │  ┌──────────────┐     ┌────────────────────┐   ┌───────────────┐ │
+ │            │             │  │ OctoSTS      │◄────┤ Reconciler         ├──►│  Metaagent    │ │
+ │            │             │  │ (get token)  │     │ (convergence loop) │   │  (Vertex AI)  │ │
+ │            │             │  └──────────────┘     └────────────────────┘   │               │ │
+ │            │             │                                                │  Inventory    │ │
+ │            │             │                                                │     │         │ │
+ │            │             │                                                │     ▼         │ │
+ │            │             │                                                │  Chef ⇄ Critic│ │
+ │            │             │                                                │     │         │ │
+ │            │◄────────────┼─── Check Run with recipe via GitHub API        │     ▼         │ │
+ │            │             │                                                │   Judge       │ │
+ │ Check Run +│             │                                                └───────────────┘ │
+ │ Recipe md  │             │                                                                  │
+ └────────────┘             └──────────────────────────────────────────────────────────────────┘
 ```
 
-The four agents (Inventory, Chef, Critic, Judge) run via Anthropic Claude on
-Vertex AI. Critic and Chef iterate until the proposed recipe has no structural
-drift against the inventory; Judge scores the converged recipe on a 0.0–1.0
-quality scale. Identical plumbing to Chainguard's `update-bot` — only the
-output sink differs (Check Run instead of PR).
+**Flow:**
 
----
+1. GitHub sends webhook when `fridge.yaml` is pushed
+2. `github-events` converts the webhook into a CloudEvent
+3. CloudEvents Broker filters by path pattern and routes to Workqueue
+4. Workqueue dedups by file path; dispatcher picks up the work item
+5. Reconciler mints a GitHub token via OctoSTS, then fetches `fridge.yaml` + `goal.yaml`
+6. Reconciler runs the **convergence loop** through the Metaagent on Vertex AI:
+   - **Inventory** parses the raw YAML into a normalized state (expiry buckets, days-to-expiry)
+   - **Chef** proposes a recipe given the goal + inventory
+   - **Critic** emits structured drift signals (missing / insufficient / expired ingredients, constraint violations)
+   - Chef ⇄ Critic iterate (up to 3 times) until `drift.count == 0`
+   - **Judge** scores the converged recipe on a 0.0–1.0 quality scale
+7. Reconciler writes a GitHub Check Run on the commit, with the recipe rendered as Markdown in the summary
+
+Same plumbing as Chainguard's `update-bot` (workqueue + OctoSTS + reconciler) — only the output sink differs (Check Run instead of PR).
 
 ## Observability — every agent step in Elastic APM
 
