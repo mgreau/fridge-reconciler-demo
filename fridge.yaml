@@ -46,7 +46,7 @@ items:
     expires: 2026-07-02
 
   - name: garlic
-    quantity: 3
+    quantity: 6
     unit: cloves
     expires: 2026-06-16
 
