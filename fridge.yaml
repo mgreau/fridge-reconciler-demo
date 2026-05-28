@@ -40,9 +40,9 @@ items:
     unit: g
     expires: 2026-07-02
 
-  - name: garlic
-    quantity: 6
-    unit: cloves
+  - name: tomatoes
+    quantity: 10
+    unit: count
     expires: 2026-06-16
 
 pantry:
