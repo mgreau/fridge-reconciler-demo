@@ -41,7 +41,7 @@ items:
     expires: 2026-05-26
 
   - name: butter
-    quantity: 50
+    quantity: 30
     unit: g
     expires: 2026-07-02
 
