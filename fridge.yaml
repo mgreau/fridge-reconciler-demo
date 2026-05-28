@@ -6,7 +6,7 @@ items:
     expires: 2026-05-29
 
   - name: milk
-    quantity: 250
+    quantity: 100
     unit: ml
     expires: 2026-05-23
 
