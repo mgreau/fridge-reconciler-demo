@@ -1,0 +1,16 @@
+# goal.yaml — desired state. Rarely edited.
+vibe: "something comforting and warm for a quiet evening"
+
+constraints:
+  vegetarian: true
+  max_prep_minutes: 25
+  servings: 2
+  use_expiring_first: true
+
+avoid:
+  - mushrooms
+  - spicy
+
+prefer:
+  - one_pan
+  - cozy
