@@ -1,0 +1,10 @@
+issuer: https://accounts.google.com
+# mgreau85-fridge-recon@mgreau85-chainguard.iam.gserviceaccount.com
+subject: "107949693475386959767"
+
+permissions:
+  contents: read
+  checks: write
+
+repositories:
+  - fridge-reconciler-demo
